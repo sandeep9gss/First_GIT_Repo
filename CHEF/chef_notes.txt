@@ -1,0 +1,116 @@
+
+knife bootstrap <fqdn> --ssh-user <username> --ssh-password <passwd> --sudo --use-sudo-password --node-name <nodename>
+
+
+knife bootstrap windows winrm <fqdn> --winrm-user <username> --winrm-password <password> --node-name LLG00FJN_Oracle
+
+knife bootstrap windows winrm 10.10.1.12 --winrm-user admin --winrm-password 'NewPass@123' --node-name WinServer
+
+knife node run_list add <nodename> 'recipe[cookbookname],recipe[cookbook]'
+
+knife ssh <fqdn> 'sudo chef-client' --manual-list --ssh-user <username> --ssh-password <password> 
+
+
+knife node run_list add AppServer 'recipe[first_cookbook::dir_creation]'
+
+knife ssh 10.10.1.14 chef-client --manual-list --ssh-user root --ssh-password 'NewPass@123'
+
+cookbook commands:
+
+creation--
+
+knife cookbook create weblogic_install
+
+upload to chef server
+
+knife cookbook upload weblogic_install
+
+how to delete cookbook
+
+knife cookbook delete weblogic_install
+
+
+knife data bag from file databagname file.json --secret-file  path/files/default/secretkey.txt
+
+
+databag = Chef::EncryptedDataBagItem.load( 'databagname', 'databag item name')
+databag = data_bag_item('databagname', "databagitemname",IO.read("/commonFiles/secretkey.txt"))
+
+cookbook:
+
+combination of attributes, resources and recipes
+
+::::resource:::::
+directory
+file
+execute
+cookbook_file
+remote_file
+template
+
+template '/root/dilipWeblogic/PDTtime.log' do
+    source 'PDTtime.log.erb'
+    action :create
+    variables ({
+    	:weblogicuser => wlsuser,
+    	:weblogingpswd => wlspswd
+    	})
+end
+
+   
+   <%= @weblogicuser %>
+
+
+batch
+bash
+   csh
+   ksh
+user
+env
+package
+  yum_package
+  apt_package
+  deb_package
+  window_package
+
+service
+cron
+
+
+recipe::::
+combination of resources and attributes
+
+
+Attributes :
+
+Varibles declaration.
+
+
+Files vs Template:
+
+environment:
+json: key-value pair
+
+knife environment from file <path of the envi file>\test_env.json
+
+
+{ "name": "test_env",
+  "description": "This is Test environment",
+  "default_attributes": {
+    "software_install": {
+      "dir_path": "/home/ec2-user/testing_dir",
+      "username": "test_user",
+      "groupname": "test_user",
+      "remote_file": "https://tomcat.apache.org/tomcat-7.0-doc/appdev/sample/sample.war",
+      "exe_dir_path": "/home/ec2-user/test-execute"
+    },
+    "java": {
+      "user_name": "test",
+      "password": "test123",
+      "environment": "QA environment",
+      "group": "QA"
+    }
+  }
+}
+
+
