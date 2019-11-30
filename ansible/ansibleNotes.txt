@@ -1,0 +1,222 @@
+Ansible Installation
+====================
+You can easily add the repo by running the following command:
+sudo rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+
+sudo yum -y install ansible
+
+version checking 
+================
+[ec2-user@ip-172-31-39-40 yum.repos.d]$ ansible --version
+ansible 2.4.2.0
+  config file = /etc/ansible/ansible.cfg
+  configured module search path = [u'/home/ec2-user/.ansible/plugins/modules', u'/usr/share/ansible/plugins/modules']
+  ansible python module location = /usr/lib/python2.7/site-packages/ansible
+  executable location = /usr/bin/ansible
+  python version = 2.7.5 (default, May  3 2017, 07:55:04) [GCC 4.8.5 20150623 (Red Hat 4.8.5-14)]
+[ec2-user@ip-172-31-39-40 yum.repos.d]$
+
++++++++++++++++
+Ansible Layout
+===============
+Before we create a basic configuration, I want to take a moment to explain the Ansible file/folder structure. 
+You’ll note that if you list the files/folders in /etc/ansible that you’re presented with the following. 
+Alongside, I have included an explanation for each file or folder.
+
+/etc/ansible — The main configuration folder which encompasses all Ansible config
+/etc/ansible/hosts — This file holds information for the hosts/and host groups you will configure
+/etc/ansible/ansible.cfg — The main configuration file for Ansible
+/etc/ansible/roles — This folder allows you to create folders for each server role, web/app/db, etc.
+
++++++
+When speaking with remote machines, Ansible by default assumes you are using SSH keys. 
+SSH keys are encouraged but password authentication can also be used where needed by supplying the option --ask-pass. 
+If using sudo features and when sudo requires a password, also supply --ask-become-pass (previously --ask-sudo-pass which has been deprecated).
+
+Changes can be made and used in a configuration file which will be processed in the following order:
+
+* ANSIBLE_CONFIG (an environment variable)
+* ansible.cfg (in the current directory)
+* .ansible.cfg (in the home directory)
+* /etc/ansible/ansible.cfg
+
++++++
+Execution Types
+===============
+2 types
+Remote – Default, package copied to remote system and executed there
+Local – Local Ansible Server executes it, remote server not able to receive Python  package, managing network equipment
+
+
+++++++++++
+Patterns
+==========
+Patterns in Ansible are how we decide which hosts to manage. 
+This can mean what hosts to communicate with, but in terms of
+Playbooks it actually means what hosts to apply a particular configuration or IT process to
+
+Syntax:
+ansible <pattern> -m <modulename> -a <arguments>
+
+eg: ansible appservers -m service -a "name=httpd state=started"
+
+=> here appservers is a pattern refers to a set of machines
+=> m is module 
+=> a is argument
+The following patterns are equivalent and target all hosts in the inventory:
+	all
+	*  --- not working on cmd
+>>>It is also possible to address a specific host or set of hosts by name:
+	mysite.web.com
+	mysite.app.com:yoursite.web.com
+	10.120.12.23
+	18.123.*
+
+>>>The following patterns address one or more groups. Groups separated by a colon indicate an “OR” configuration. 
+This means the host may be in either one group or the other:
+
+	appservers
+	appservers:dbservers
+
+>>>You can exclude groups as well, for instance, all machines must be in the 
+group appservers but not in the group dbservers:
+
+	ansible 'appservers:!dbservers' -m ping
+
+>>>You can also specify the intersection of two groups. This would mean the hosts must be in the 
+group webservers and the host must also be in the group staging:
+
+	webservers:&staging
+
+
+#################################
+Introduction To Ad-Hoc Commands
+#################################
+
+/usr/bin/ansible  ---> ansible command is here
+
+>>>Let’s use Ansible’s command line tool to reboot all web servers, 10 at a time. f means forks
+
+	ansible webservers -a "/sbin/reboot" -f 10
+
+>>>ansible will default to running from your user account. If you do not like this behavior, pass in “-u username” 
+to run commands as a different user
+
+	$ ansible webservers -a "/usr/bin/" -u <username>
+
+>>>If you want to run commands through privilege escalation i.e., as root user
+
+	$ ansible atlanta -a "/usr/bin/uname -a" -u <username> --become # if you want to use password then use --ask-become-pass
+
+>>>It is also possible to become a user other than root using --become-user:
+
+	$ ansible atlanta -a "/usr/bin/uname -a" -u <username> --become-user < otheruser>
+	
+>>>Changes can be made and used in a configuration file which will be processed in the following order:
+
+* ANSIBLE_CONFIG (an environment variable)
+* ansible.cfg (in the current directory)
+* .ansible.cfg (in the home directory)
+* /etc/ansible/ansible.cfg
+	
+	
+################
+MODULES
+################
+commonly used
+
+=> apt/yum
+=> yum_repository
+=> copy
+=> command
+=> file
+=> get_url
+=> git
+=> ping
+=> service
+=> shell
+=> user
+=> synchronize
+=> template
+=> uri
+=> wait_for
+=> ec2
+
+++++++++++++++
+Documentation
+# LIST ALL MODULES
+ansible-doc -l
+# VIEW MODULE DOCUMENTATION
+ansible-doc 
+
++++++++++++++++++++
+
+SHELL
+>>>Using the shell MODULE - Execute commands in nodes. module looks like this	
+
+  $ ansible localhost -m shell -a 'echo $TERM'
+
+COPY
+>>> Here’s another use case for the /usr/bin/ansible command line. 
+Ansible can SCP lots of files to multiple machines in parallel
+
+	$ ansible webservers -m copy -a "src=/etc/hosts dest=/tmp/hosts"
+ 
+FILE
+>>>The file module allows changing ownership and permissions on files.
+
+	$ ansible webservers -m file -a "dest=/var/opt/a.txt mode=600"
+	$ ansible webservers -m file -a "dest=/var/opt/b.txt mode=664 owner=sys group=dba"
+>>>The file module can also create directories, similar to mkdir -p and delete directories (recursively) and delete files:
+
+	$ ansible webservers -m file -a "dest=/var/opt/c mode=755 owner=mdehaan group=mdehaan state=directory"
+	$ ansible webservers -m file -a "dest=/var/opt/c state=absent"
+
+::::::Managing Packages:::::: YUM and APT
+
+Ensure a package is installed, but don’t update it:
+	$ ansible webservers -m yum -a "name=acme state=present"
+
+Ensure a package is installed to a specific version:
+	$ ansible webservers -m yum -a "name=acme-1.5 state=present"
+
+Ensure a package is at the latest version:
+	$ ansible webservers -m yum -a "name=acme state=latest"
+
+Ensure a package is not installed:
+	$ ansible webservers -m yum -a "name=acme state=absent"
+
+:::::::Users and Groups::::::::
+The ‘user’ module allows easy creation and manipulation of existing user accounts, 
+as well as removal of user accounts that may exist:
+
+	$ ansible all -m user -a "name=ansiuser password=<crypted password here>"
+	$ ansible all -m user -a "name=ansiuser state=absent"
+Note: we can encrypt the password using mkpasswd command.. Installation of mkpasswd using this command : "sudo apt install whois"
+
+
+Deploy your webapp straight from git:
+	
+$ ansible webservers -m git -a "repo=https://foo.example.org/repo.git dest=/srv/myapp version=HEAD"
+
+Managing Services::::::::::::
+
+Ensure a service is started on all webservers:
+  $ ansible webservers -m service -a "name=httpd state=started"
+  
+Alternatively, restart a service on all webservers:
+	$ ansible webservers -m service -a "name=httpd state=restarted"
+	
+Ensure a service is stopped:
+	$ ansible webservers -m service -a "name=httpd state=stopped"
+
+
+Gathering Facts
+Facts are described in the playbooks section and represent discovered variables about a system. These can be used to implement conditional
+ execution of tasks but also just to get ad-hoc information about your system. You can see all facts via:
+
+$ ansible all -m setup
+It’s also possible to filter this output to just export certain facts, see the “setup” module documentation for details.
+
+
+	
