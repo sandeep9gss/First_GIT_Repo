@@ -1,0 +1,248 @@
+Docker Introduction
+------------------------
+- Docker is a software which provides centralized platform to execute your application
+- It wraps software components into a complete standardized unit which contains everything require to run
+- Docker is a container management service.
+- The keywords of Docker are Build, ship  and run anywhere. 
+- The whole idea of Docker is for developers to easily develop applications, ship them into containers which can then be deployed anywhere.
+
+
+
+
+------------------------------
+Docker Installation on Ubuntu
+-----------------------------
+
+- First, add the GPG key for the official Docker repository to the system:
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+- Add the Docker repository to APT sources:
+         sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" 
+- Next, update the package database with the Docker packages from the newly added repo:
+	sudo apt-get update 
+- Make sure you are about to install from the Docker repo instead of the default Ubuntu 16.04 repo:
+	sudo apt-cache policy docker-ce
+	
+- Finally, install Docker:
+	sudo apt-get install -y docker-ce
+- Docker should now be installed, Check that it's running:
+	sudo systemctl status docker
+- checking the docker version:
+      	docker --version
+- Add your username to the docker group to avoid typing sudo whenever you run the docker command
+	sudo usermod -aG docker ${USER}
+- You can log out of the server and log-in back to apply changes
+- Check whether your user added to docker group or not
+
+
+Working with Docker
+----------------------
+
+- To familiar with the docker commands, then try below commands first
+	docker
+	docker  - -version
+	docker info
+
+- To view the switches available to a specific command, type:
+	docker docker-subcommand –help
+- To check whether you can access and download images from Docker Hub, type:
+                docker run hello-world        
+           The output, should indicate that  Docker in working correctly
+- You can search for images available on Docker Hub by  using below command:
+               docker search ubuntu
+
+Creating a account on DockerHub:
+--------------------------------
+- Docker Hub is a registry service on the cloud that allows you to download Docker images that are built by other communities. 
+- You can also upload your own Docker built images to Docker hub.
+- The official site for Docker hub is : 
+	https://hub.docker.com/
+- First you need to do a simple sign-up on Docker hub.
+- Once you have signed up, you will be logged into Docker Hub
+- Next, let’s browse and find the Jenkins image.
+
+Pulling and Running an Image from DockerHub
+-------------------------------------------
+
+- If you scroll down on the same page, you can see the Docker pull command. This
+- will be used to download the Jenkins image onto the local Ubuntu serve
+	docker pull jenkins
+- To run Jenkins, you need to run the following command:
+ 	docker run -p 8080:8080 -p 50000:50000 jenkins
+
+- You will then have Jenkins successfully running as a container on the Ubuntu machine.
+
+Docker commands:
+You can always push a new image to this repository using the CLI
+$ docker tag local-image:tagname new-repo:tagname
+$ docker push new-repo:tagname
+
+You can always push a new image to this repository.
+docker push ashok9dockhub/gssInfotech:tagname 
+
+
+go to docker hub link: https://hub.docker.com and search for Jenkins
+
+and get the pull command from that screen
+run below command on your CLI
+
+
+##############################################
+pulling and running the jenkins from hub---
+docker pull jenkins
+nohup docker run -p 8080:8080 -p 50000:50000 jenkins & --to run background
+
+remove image forcefully
+docker rmi --force jenkins
+docker rmi imageID
+---To see only image ids
+docker images -q
+
+#####docker inspect : This command is used see the details of an image or container.
+docker inspect jenkins	
+
+
+
+docker images
+root@ashok-VirtualBox:~# docker images
+REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
+hello-world         latest              1815c82652c0        10 days ago         1.84kB
+centos              latest              3bee3060bfc8        2 weeks ago         193MB
+
+
+? TAG – This is used to logically tag images.
+? Image ID – This is used to uniquely identify the image.
+? Created – The number of days since the image was created.
+? Virtual Size – The size of the image.
+
+
+docker run hello-world 
+  --The run command is used to mention that we want to create an instance of an image, 
+    which is then called a container.
+
+docker run centos –it /bin/bash
+  -- -it is used to mention that we want to run in interactive mode.
+
+docker images
+   -- The output will provide the list of images on the system.
+
+docker run <image>
+docker run ubuntu
+   -- This command will download the centos image, if it is not already present, 
+      and run the OS as a container.
+
+docker rmi <ImageID>
+  -- This command is used to remove Docker images.
+
+docker images -q
+  -- This command is used to return only the Image ID’s of the images.
+     q - It tells the Docker command to return the Image ID’s only.
+
+docker ps -a 
+  -- -a - It tells the docker ps command to list all of the containers on the system.
+
+docker history <ImageId>
+  -- ImageID - This is the Image ID for which you want to see all the 
+     commands that were run against it.
+
+docker top <ContainerID >
+  -- With this command, you can see the top processes within a container.
+
+docker stop <ContainerID> 
+  -- ContainerID - This is the Container ID which needs to be stopped.
+
+docker rm <ContainerID>
+  -- ContainerID - This is the Container ID which needs to be removed.
+
+docker stats <ContainerID> 
+  -- ContainerID - This is the Container ID for which the stats need to be provided.
+
+docker pause ContainerID
+ --  is used to pause the processes in a running container.
+
+docker unpause ContainerID
+  -- is used to unpause the processes in a running container.
+
+docker kill ContainerID
+ --  is used to kill the processes in a running container.
+
+---To see list of running containers
+docker ps
+
+---To see list of all containers on the system
+docker ps -a
+
+
+############################
+Stopping and Starting the Docker
+####################################
+service docker stop
+service docker start
+service docker status
+
+
+Creatig Docker files:
+############################
+Create a file called Docker File and edit it using vim. Please note that the name
+of the file has to be "Dockerfile" with "D" as capital.
+
+vi Dockerfile
+
+
+----------------Example-----------------------------
+
+# Pull base image.
+FROM ubuntu
+
+MAINTAINER Ashok
+# Install Nginx.
+RUN \
+  apt-get update && \
+  apt-get install -y nginx && \
+#  rm -rf /var/lib/apt/lists/* && \
+   echo "\ndaemon off;" >> /etc/nginx/nginx.conf
+#  chown -R www-data:www-data /var/lib/nginx
+
+# Define mountable directories.
+#VOLUME ["/etc/nginx/sites-enabled", "/etc/nginx/certs", "/etc/nginx/conf.d", "/var/log/nginx", "/var/www/html"]
+
+# Define working directory.
+#WORKDIR /etc/nginx
+
+# Define default command.
+CMD ["nginx"]
+
+# Expose ports.
+EXPOSE 80
+EXPOSE 443
+
+
+then save above file.
+
+
+Build an Image file using below command:
+#############################################
+syntax: docker build -t ImageName:TagName dir
+
+docker build -t myfirstimage:0.0.1 /root/
+
+
+docker tag
+#############################
+This method allows one to tag an image to the relevant repository.
+
+Syntax :docker tag imageID Repositoryname
+
+Example:
+sudo docker tag ab0c1d3744dd ashok9dockhub/kingdom:1.0
+
+
+Pushing the build onto Docker hub
+####################
+docker build -t mybuild:v1.0 .
+docker tag de7bb9f6a368 ashok9dockhub/kingdom:mybuild_v1.0
+docker push ashok9dockhub/kingdom:mybuild_v1.0
+
+--->once uploaded the build to docker hub then delete the that build from your local
+docker rmi -f imageID
+---->then pull from docker hub
+docker pull ashok9dockhub/kingdom:mybuild_v1.0
