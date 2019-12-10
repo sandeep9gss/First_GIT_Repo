@@ -246,3 +246,432 @@ docker push ashok9dockhub/kingdom:mybuild_v1.0
 docker rmi -f imageID
 ---->then pull from docker hub
 docker pull ashok9dockhub/kingdom:mybuild_v1.0
+
+
+
+#############################
+Installation of apache2
+############################
+
+Dockerfile
+------------
+FROM ubuntu 
+RUN apt-get update 
+RUN apt-get install –y apache2 
+RUN apt-get install –y apache2-utils 
+RUN apt-get clean 
+EXPOSE 80 
+CMD [“apache2ctl”, “-D”, “FOREGROUND”]
+
+
+docker build –t=”mywebserver” . 
+
+docker run –d –p 80:80 mywebserver 
+---- –d : detached mode
+
+
+
+Entry Point:
+Entrypoint sets the command and parameters that will be executed first when a container is run.
+--------------
+Dockerfile:
+
+FROM ubuntu 
+MAINTAINER ashok 
+ENTRYPOINT ["echo"]
+
+or 
+
+FROM ubuntu 
+MAINTAINER ashok 
+ENTRYPOINT ["cat"]
+
+build a image 
+run a image 
+docker run imagename "hi guys"
+
+ENV:
+----
+Dockerfile:
+
+FROM ubuntu 
+MAINTAINER ashok 
+ENV var1=Tutorial var2=point 
+
+build an image
+run a image
+docker run -it imagename /bin/bash
+
+Creating a website:
+---------------------
+
+vi Docker file
+
+# Use an official Python runtime as a parent image
+FROM python:2.7-slim
+
+# Set the working directory to /app
+WORKDIR /app
+
+# Copy the current directory contents into the container at /app
+ADD . /app
+
+# Install any needed packages specified in requirements.txt
+RUN pip install --trusted-host pypi.python.org -r requirements.txt
+	
+
+# Make port 80 available to the world outside this container
+EXPOSE 80 
+
+# Define environment variable
+ENV NAME=World
+
+# Run app.py when the container launches
+CMD ["python", "-p" "app.py", "]
+
+
+####################################
+
+create below files
+
+touch app.py requirements.txt
+
+vi requirements.txt
+--------------------
+Flask
+Redis
+
+vi app.py
+---------------------
+from flask import Flask
+from redis import Redis, RedisError
+import os
+import socket
+
+# Connect to Redis
+redis = Redis(host="redis", db=0, socket_connect_timeout=2, socket_timeout=2)
+
+app = Flask(__name__)
+
+@app.route("/")
+def hello():
+    try:
+        visits = redis.incr("counter")
+    except RedisError:
+        visits = "<i>cannot connect to Redis, counter disabled</i>"
+
+    html = "<h3>Hello {name}!</h3>" \
+           "<b>Hostname:</b> {hostname}<br/>" \
+           "<b>Visits:</b> {visits}"
+    return html.format(name=os.getenv("NAME", "world"), hostname=socket.gethostname(), 
+visits=visits)
+
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', port=80)
+
+----------------------------------------------
+
+build an image
+
+docker build -t sitename .
+
+docker run -p 7777:80 sitename
+
+
+$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+docker linking::::::
+
+--this is backend
+docker pull mysql
+
+docker run --name mbatch_mysql -e MYSQL_ROOT_PASSWORD=admin123 -d mysql:latest
+
+--this is front
+docker pull wordpress
+
+docker run --name objectswordpress --link mbatch_mysql -p 8080:80 -d wordpress
+
+
+ubuntu@ip-172-31-17-223:~$ cat docker-compose.yml
+version: '2.0'
+
+services:
+
+  wordpress:
+    image: wordpress
+    ports:
+      - 9099:80
+    environment:
+      WORDPRESS_DB_PASSWORD: "admin123"
+
+  mysql:
+    image: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "admin123"
+ubuntu@ip-172-31-17-223:~$
+ubuntu@ip-172-31-17-223:~$
+ubuntu@ip-172-31-17-223:~$
+ubuntu@ip-172-31-17-223:~$ cat docker-compose.yml_web
+version: "3"
+services:
+  web:
+    image: ashok9dockhub/vamsi_repo:mysite
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: "50M"
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "7070:80"
+    networks:
+      - webnet
+networks:
+  webnet:
+
+
+explanation::::
+-----------------------
+This docker-compose.yml file tells Docker to do the following:
+
+Pull the image from the registry.
+
+Run 3 instances of that image as a service called web, limiting each one to use, at most, 10% 
+of a single core of CPU time (this could also be e.g. “1.5” to mean 1 and half core for each), 
+and 50MB of RAM.
+
+Immediately restart containers if one fails.
+
+Map port 4000 on the host to web’s port 80.
+
+Instruct web’s containers to share port 80 via a load-balanced network called webnet. 
+(Internally, the containers themselves publish to web’s port 80 at an ephemeral port.)
+
+Define the webnet network with the default settings (which is a load-balanced overlay network).
+
+
+:::::::::::::::::::::::::::::::::
+in short:::::::::::::::::::::::::
+:::::::::::::::::::::::::::::::::
+
+FROM
+
+Usage:
+
+FROM <image>
+FROM <image>:<tag>
+FROM <image>@<digest>
+Information:
+
+FROM must be the first non-comment instruction in the Dockerfile.
+FROM can appear multiple times within a single Dockerfile in order to create multiple images. 
+Simply make a note of the last image ID output by the commit before each new FROM command.
+The tag or digest values are optional. If you omit either of them, the builder assumes a latest 
+by default. The builder returns an error if it cannot match the tag value.
+_
+
+MAINTAINER
+
+Usage:
+
+MAINTAINER <name>
+The MAINTAINER instruction allows you to set the Author field of the generated images.
+
+Reference
+
+RUN
+
+Usage:
+
+RUN <command> (shell form, the command is run in a shell, which by default is /bin/sh -c on 
+Linux or cmd /S /C on Windows)
+RUN ["<executable>", "<param1>", "<param2>"] (exec form)
+Information:
+
+The exec form makes it possible to avoid shell string munging, and to RUN commands using a base 
+image that does not contain the specified shell executable.
+The default shell for the shell form can be changed using the SHELL command.
+Normal shell processing does not occur when using the exec form. For example, RUN ["echo", 
+"$HOME"] will not do variable substitution on $HOME.
+_
+
+CMD
+
+Usage:
+
+CMD ["<executable>","<param1>","<param2>"] (exec form, this is the preferred form)
+CMD ["<param1>","<param2>"] (as default parameters to ENTRYPOINT)
+CMD <command> <param1> <param2> (shell form)
+Information:
+
+The main purpose of a CMD is to provide defaults for an executing container. These defaults can 
+include an executable, or they can omit the executable, in which case you must specify an 
+ENTRYPOINT instruction as well.
+There can only be one CMD instruction in a Dockerfile. If you list more than one CMD then only 
+the last CMD will take effect.
+If CMD is used to provide default arguments for the ENTRYPOINT instruction, both the CMD and 
+ENTRYPOINT instructions should be specified with the JSON array format.
+If the user specifies arguments to docker run then they will override the default specified in 
+CMD.
+Normal shell processing does not occur when using the exec form. For example, CMD ["echo", 
+"$HOME"] will not do variable substitution on $HOME.
+_
+
+LABEL
+
+Usage:
+
+LABEL <key>=<value> [<key>=<value> ...]
+Information:
+
+The LABEL instruction adds metadata to an image.
+To include spaces within a LABEL value, use quotes and backslashes as you would in command-line 
+parsing.
+Labels are additive including LABELs in FROM images.
+If Docker encounters a label/key that already exists, the new value overrides any previous 
+labels with identical keys.
+To view an image’s labels, use the docker inspect command. They will be under the "Labels" JSON 
+attribute.
+_
+
+EXPOSE
+
+Usage:
+
+EXPOSE <port> [<port> ...]
+Information:
+
+Informs Docker that the container listens on the specified network port(s) at runtime.
+EXPOSE does not make the ports of the container accessible to the host.
+_
+
+ENV
+
+Usage:
+
+ENV <key> <value>
+ENV <key>=<value> [<key>=<value> ...]
+Information:
+
+The ENV instruction sets the environment variable <key> to the value <value>.
+The value will be in the environment of all “descendant” Dockerfile commands and can be 
+replaced inline as well.
+The environment variables set using ENV will persist when a container is run from the resulting 
+image.
+The first form will set a single variable to a value with the entire string after the first 
+space being treated as the <value> - including characters such as spaces and quotes.
+_
+
+ADD
+
+Usage:
+
+ADD <src> [<src> ...] <dest>
+ADD ["<src>", ... "<dest>"] (this form is required for paths containing whitespace)
+Information:
+
+Copies new files, directories, or remote file URLs from <src> and adds them to the filesystem 
+of the image at the path <dest>.
+<src> may contain wildcards and matching will be done using Go’s filepath.Match rules.
+If <src> is a file or directory, then they must be relative to the source directory that is 
+being built (the context of the build).
+<dest> is an absolute path, or a path relative to WORKDIR.
+If <dest> doesn’t exist, it is created along with all missing directories in its path.
+_
+
+COPY
+
+Usage:
+
+COPY <src> [<src> ...] <dest>
+COPY ["<src>", ... "<dest>"] (this form is required for paths containing whitespace)
+Information:
+
+Copies new files or directories from <src> and adds them to the filesystem of the image at the 
+path <dest>.
+<src> may contain wildcards and matching will be done using Go’s filepath.Match rules.
+<src> must be relative to the source directory that is being built (the context of the build).
+<dest> is an absolute path, or a path relative to WORKDIR.
+If <dest> doesn’t exist, it is created along with all missing directories in its path.
+_
+
+ENTRYPOINT
+
+Usage:
+
+ENTRYPOINT ["<executable>", "<param1>", "<param2>"] (exec form, preferred)
+ENTRYPOINT <command> <param1> <param2> (shell form)
+Information:
+
+Allows you to configure a container that will run as an executable.
+Command line arguments to docker run <image> will be appended after all elements in an exec 
+form ENTRYPOINT and will override all elements specified using CMD.
+The shell form prevents any CMD or run command line arguments from being used, but the 
+ENTRYPOINT will start via the shell. This means the executable will not be PID 1 nor will it 
+receive UNIX signals. Prepend exec to get around this drawback.
+Only the last ENTRYPOINT instruction in the Dockerfile will have an effect.
+_
+
+VOLUME
+
+Usage:
+
+VOLUME ["<path>", ...]
+VOLUME <path> [<path> ...]
+Creates a mount point with the specified name and marks it as holding externally mounted 
+volumes from native host or other containers.
+
+_
+
+USER
+
+Usage:
+
+USER <username | UID>
+The USER instruction sets the user name or UID to use when running the image and for any RUN, 
+CMD and ENTRYPOINT instructions that follow it in the Dockerfile.
+
+
+
+WORKDIR
+
+Usage:
+
+WORKDIR </path/to/workdir>
+Information:
+
+Sets the working directory for any RUN, CMD, ENTRYPOINT, COPY, and ADD instructions that follow 
+it.
+It can be used multiple times in the one Dockerfile. If a relative path is provided, it will be 
+relative to the path of the previous WORKDIR instruction.
+_
+
+ARG
+
+Usage:
+
+ARG <name>[=<default value>]
+Information:
+
+Defines a variable that users can pass at build-time to the builder with the docker build 
+command using the --build-arg <varname>=<value> flag.
+Multiple variables may be defined by specifying ARG multiple times.
+It is not recommended to use build-time variables for passing secrets like github keys, user 
+credentials, etc. Build-time variable values are visible to any user of the image with the 
+docker history command.
+Environment variables defined using the ENV instruction always override an ARG instruction of 
+the same name.
+Docker has a set of predefined ARG variables that you can use without a corresponding ARG 
+instruction in the Dockerfile.
+HTTP_PROXY and http_proxy
+HTTPS_PROXY and https_proxy
+FTP_PROXY and ftp_proxy
+NO_PROXY and no_proxy
+
+
+
+
+
