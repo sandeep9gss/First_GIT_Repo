@@ -675,3 +675,127 @@ NO_PROXY and no_proxy
 
 
 
+
+################################
+docker swarm
+################################
+We need atleast three machine to work on Docker Swarm
+
+The following ports must be available. On some systems, these ports are open by default.
+
+TCP port 2377 for cluster management communications
+TCP and UDP port 7946 for communication among nodes
+UDP port 4789 for overlay network traffic
+
+On Machine run the below command to make it as Manager Node:
+   
+docker swarm init --advertise-addr <ipaddress>
+
+out put looks like:
+---------------------------------------------------------
+Swarm initialized: current node (rg8w3y05lvdvf5me9k9g5d4s4) is now a manager.
+
+To add a worker to this swarm, run the following command:
+
+    docker swarm join --token SWMTKN-1-0wzn32lyp70xwky49d26fb9rwlvsv50ybib7we1uke0sbgh4ks-d8ey57w5uiw2q920c6llsdvel xxx.xx.xx.xx:2377
+
+To add a manager to this swarm, run 'docker swarm join-token manager' and follow the instructions.
+------------------------------------------------------------
+
+The output includes the commands to join new nodes to the swarm. Nodes will join as managers or workers depending on the value for the --token flag.
+
+
+Run "docker info" to view the current state of the swarm
+
+OUTPUT:
+------
+
+$ docker info
+
+Containers: 2
+Running: 0
+Paused: 0
+Stopped: 2
+  ...snip...
+Swarm: active
+  NodeID: dxn1zf6l61qsb1josjja83ngz
+  Is Manager: true
+  Managers: 1
+  Nodes: 1
+  ...snip...
+
+Run the docker "node ls" command to view information about nodes:
+
+ubuntu@ip-:~$ docker node ls
+ID                            HOSTNAME          STATUS              AVAILABILITY        MANAGER STATUS      ENGINE VERSION
+zcxuhu86mls0oa33gd50p5l3b *   ip-12-31-84-12    Ready               Active              Leader              19.03.5
+
+
+Joining nodes to Manager:
+-------------------------
+Run the "docker swarm join" command on worker nodes which was produced during "docker swarm init"
+
+	docker swarm join --token SWMTKN-1-0wzn32lyp70xwky49d26fb9rwlvsv50ybib7we1uke0sbgh4ks-d8ey57w5uiw2q920c6llsdvel xxx.xx.xx.xx:2377
+
+Open the Manager node then execute the below command to see the list of workers
+    docker node ls
+
+	
+Deploying a service on Swarm:
+------------------------------
+run the below command to deploy a service: 
+	docker service create --replicas 1 --name helloworld alpine ping docker.com
+
+The docker service create command creates the service.
+The --name flag names the service helloworld.
+The --replicas flag specifies the desired state of 1 running instance.
+The arguments alpine ping docker.com define the service as an Alpine Linux container that executes the command ping docker.com.	
+	
+to check the service:
+		docker service ls
+to remove the service:
+        docker service rm ID
+
+deploying apache/nginx:
+	docker service create -p 80:80 apache
+	docker service create -publish 80:80 nginx
+	
+	
+If you don’t have the command available, you can run the following command on a manager node to retrieve the join command for a worker:
+	docker swarm join-token worker
+Use "docker swarm leave" to leave this swarm and join another one.
+	docker swarm leave --force
+
+
+ubuntu@ip-172-31-17-223:~$ docker swarm init
+Swarm initialized: current node (07ib1q2f9p3v9tmxzkr7yhcq6) is now a manager.
+
+To add a worker to this swarm, run the following command:
+
+    docker swarm join --token SWMTKN-1-5wo8bssiq1fulbaexwzdylbme3w6ru5ukwnq8mdvwnoqblju94-3skfr1ku3ftfdvyj7rt1or4iw 172.31.17.223:2377
+
+To add a manager to this swarm, run 'docker swarm join-token manager' and follow the instructions.
+
+
+
+
+
+-------------------------------
+Configure the Docker daemon
+-------------------------------
+Either pass the --registry-mirror option when starting dockerd manually, or edit /etc/docker/daemon.json and add the registry-mirrors key and value, to make the change persistent.
+
+{
+  "registry-mirrors": ["https://<my-docker-mirror-host>"]
+}
+Save the file and reload Docker for the change to take effect.
+
+https://docs.docker.com/registry/recipes/mirror/
+
+docker swarm related stuff::::::
+-----------------------------------
+https://www.thepolyglotdeveloper.com/2017/05/load-balancing-docker-swarm-cluster-nginx-reverse-proxy/
+
+
+
+
