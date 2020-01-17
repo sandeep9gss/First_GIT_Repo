@@ -23,7 +23,7 @@ Docker Installation on Ubuntu
 	sudo apt-cache policy docker-ce
 	
 - Finally, install Docker:
-	sudo apt-get install -y docker-ce
+	sudo apt-get install -y docker-ce-cli=5:18.09.9~3-0~ubuntu-bionic docker-ce=5:18.09.9~3-0~ubuntu-bionic 
 - Docker should now be installed, Check that it's running:
 	sudo systemctl status docker
 - checking the docker version:
@@ -140,7 +140,7 @@ docker images -q
 docker ps -a 
   -- -a - It tells the docker ps command to list all of the containers on the system.
 
-docker history <ImageId>
+docker history <containerId>
   -- ImageID - This is the Image ID for which you want to see all the 
      commands that were run against it.
 
@@ -175,9 +175,10 @@ docker ps -a
 ############################
 Stopping and Starting the Docker
 ####################################
-service docker stop
-service docker start
-service docker status
+systemctl stop docker 
+systemctl start docker 
+systemctl status docker 
+systemctl restart docker 
 
 
 Creatig Docker files:
@@ -257,18 +258,17 @@ Dockerfile
 ------------
 FROM ubuntu 
 RUN apt-get update 
-RUN apt-get install –y apache2 
-RUN apt-get install –y apache2-utils 
+RUN apt-get install -y apache2 
+RUN apt-get install -y apache2-utils 
 RUN apt-get clean 
 EXPOSE 80 
-CMD [“apache2ctl”, “-D”, “FOREGROUND”]
+CMD ["apache2ctl", "-D", "FOREGROUND"]
 
 
 docker build –t=”mywebserver” . 
 
 docker run –d –p 80:80 mywebserver 
 ---- –d : detached mode
-
 
 
 Entry Point:
@@ -341,6 +341,7 @@ vi requirements.txt
 Flask
 Redis
 
+
 vi app.py
 ---------------------
 from flask import Flask
@@ -377,6 +378,78 @@ docker build -t sitename .
 
 docker run -p 7777:80 sitename
 
+#################################################
+Wordpress Installation				#
+#################################################
+
+MariaDB setup:
+--------------
+docker pull mariadb
+mkdir ~/wordpress
+mkdir -p ~/wordpress/database
+mkdir -p ~/wordpress/html
+
+docker run -e MYSQL_ROOT_PASSWORD=admin123 -e MYSQL_USER=wpuser -e MYSQL_PASSWORD=welcome1 -e MYSQL_DATABASE=wordpress_db -v /home/ubuntu/wordpress/database:/var/lib/mysql --name wordpressdb -d mariadb
+
+Parameter explanation:
+
+MYSQL_ROOT_PASSWORD = configure the password for the MySQL root user.
+MYSQL_USER = create a new MySQL user 'wpuser' for the WordPress database.
+MYSQL_PASSWORD = set the password 'wpuser@' for the user 'wpuser'.
+MYSQL_DATABASE = create a new database for the wordpress installation with name 'wordpress_db'.
+-v /root/wordpress/database:/varlib/mysql = linked database directory to the mysql directory '/var/lib/mysql' on the container to ensure data persistance.
+
+From the host machine, check the wordpressdb container IP address with docker command below:
+
+docker inspect -f '{{ .NetworkSettings.IPAddress }}' wordpressdb
+
+Next, connect to the wordpressdb container with mysql command from the host system:
+mysql -u wpuser -h 172.17.0.2 -p
+
+Note: If mysql connect not installed on the machine then please install client : sudo apt install mysql-client-core-5.7
+
+WordPress setup:
+---------------
+docker pull wordpress:latest
+
+create a new container from the images with the name 'wpcontainer'.
+
+docker run -e WORDPRESS_DB_USER=wpuser -e WORDPRESS_DB_PASSWORD=welcome1 -e WORDPRESS_DB_NAME=wordpress_db -p 8081:80 -v /root/wordpress/html:/var/www/html --link wordpressdb:mysql --name wpcontainer -d wordpress
+
+Parameters:
+
+WORDPRESS_DB_USER = define database user 'wpuser' for the wordpress db.
+WORDPRESS_DB_PASSWORD = password 'wpuser@' for the database user 'wpuser'.
+WORDPRESS_DB_NAME = name of the database 'wordpress_db' created on step 2.
+-p 8081:80 = mapping the port 80 on the container to port 8081 on the host.
+-v /root/wordpress/html:/var/www/html = Linking the web root directory '/var/www/html' on the container to the local host directory 'wordpress/html'.
+--link wordpressdb:mysql = linking the mariadb container 'wordpressdb' to the new continer wordpress 'wpcontainer'.
+
+
+To see the WordPress container running, you can check it with the curl command on the host IP and port 8081.
+
+curl -I 192.168.43.99:8081
+
+output:
+
+HTTP/1.1 302 Found
+Date: Sun, 15 Dec 2019 06:11:20 GMT
+Server: Apache/2.4.38 (Debian)
+X-Powered-By: PHP/7.3.12
+Expires: Wed, 11 Jan 1984 05:00:00 GMT
+Cache-Control: no-cache, must-revalidate, max-age=0
+X-Redirect-By: WordPress
+Location: http://34.230.39.136:8081/wp-admin/install.php
+Content-Type: text/html; charset=UTF-8
+
+
+take the location address and proceed with WordPress Installation.
+
+
+#################################################
+
+
+
 
 $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
@@ -391,6 +464,10 @@ docker run --name mbatch_mysql -e MYSQL_ROOT_PASSWORD=admin123 -d mysql:latest
 docker pull wordpress
 
 docker run --name objectswordpress --link mbatch_mysql -p 8080:80 -d wordpress
+
+
+
+Need to put connection details as well????
 
 
 ubuntu@ip-172-31-17-223:~$ cat docker-compose.yml
@@ -674,8 +751,6 @@ NO_PROXY and no_proxy
 
 
 
-
-
 ################################
 docker swarm
 ################################
@@ -778,11 +853,9 @@ To add a manager to this swarm, run 'docker swarm join-token manager' and follow
 
 
 
-
-
--------------------------------
+##################################
 Configure the Docker daemon
--------------------------------
+##################################
 Either pass the --registry-mirror option when starting dockerd manually, or edit /etc/docker/daemon.json and add the registry-mirrors key and value, to make the change persistent.
 
 {
@@ -796,6 +869,66 @@ docker swarm related stuff::::::
 -----------------------------------
 https://www.thepolyglotdeveloper.com/2017/05/load-balancing-docker-swarm-cluster-nginx-reverse-proxy/
 
+
+##########################################
+How to make changes to running container:
+##########################################
+
+docker exec -it container-name bash
+c. From the shell, make the changes in the container as required. This can include installing new packages, modifying configuration files, downloading or removing files, compiling modules, and so on.
+
+d. Once the changes are done, exit the container. Then commit the container as a new image. This will save the modified container state as a new image.
+
+docker commit container-ID image-name
+
+
+
+##########################################
+Assigning static IP to docker container
+##########################################
+Method1:
+-------
+Easy with Docker version 1.10.1, build 9e83765.
+
+First you need to create you own docker network (mynet123)
+
+>>> docker network create --subnet=172.18.0.0/16 mynet123
+
+than simply run the image (I'll take ubuntu as example)
+>>> docker run --net mynet123 --ip 172.18.0.22 -it ubuntu bash
+
+then in ubuntu shell
+
+>>> ip addr
+
+Method2:
+--------
+For docker-compose you can use following docker-compose.yml
+
+version: '2'
+services:
+  nginx:
+    image: nginx
+    container_name: nginx-container
+    networks:
+      static-network:
+        ipv4_address: 172.20.128.2
+networks:
+  static-network:
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          #docker-compose v3+ do not use ip_range
+          ip_range: 172.28.5.0/24
+from host you can test using:
+
+>>> docker-compose up -d
+>>> curl 172.20.128.2
+Modern docker-compose does not change ip address that frequently.
+
+To find ips of all containers in your docker-compose in a single line use:
+
+>>> for s in `docker-compose ps -q`; do echo ip of `docker inspect -f "{{.Name}}" $s` is `docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $s`; done
 
 
 

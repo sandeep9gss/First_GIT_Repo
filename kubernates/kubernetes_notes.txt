@@ -1,0 +1,716 @@
+How to Install and Configure Kubernetes (k8s) on Ubuntu 18.04 LTS 19.04
+1)Docker Installation on Ubuntu
+-----------------------------
+
+- First, add the GPG key for the official Docker repository to the system:
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+- Add the Docker repository to APT sources:
+         sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" 
+- Next, update the package database with the Docker packages from the newly added repo:
+	sudo apt-get update 
+- Make sure you are about to install from the Docker repo instead of the default Ubuntu 16.04 repo:
+	sudo apt-cache policy docker-ce
+	
+- Finally, install Docker:
+	sudo apt-get install -y docker-ce-cli=5:18.09.9~3-0~ubuntu-bionic docker-ce=5:18.09.9~3-0~ubuntu-bionic
+- Docker should now be installed, Check that it's running:
+	sudo systemctl status docker
+- checking the docker version:
+      	docker --version
+- Add your username to the docker group to avoid typing sudo whenever you run the docker command
+	sudo usermod -aG docker ${USER}
+- You can log out of the server and log-in back to apply changes
+- Check whether your user added to docker group or not
+
+2) Installing Kubernetes
+-------------------------
+$ sudo apt-get install apt-transport-https curl -y
+
+# add Kubernetes package repository key
+$ curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+
+# configure Kubernetes repository
+$ sudo apt-add-repository "deb http://apt.kubernetes.io/ kubernetes-xenial main"
+
+$ sudo apt update
+
+3)
+#disable swap temporary,
+$ sudo swapoff -a
+
+4)
+$ Kubeadm is one of the most common method used to deploy kubernetes cluster
+
+#Install Kubeadm package
+$ sudo apt-get install kubeadm -y
+
+$ kubeadm version
+
+#install the parts we need for Kubernetes
+$ sudo apt-get install -y kubelet kubectl kubernetes-cni
+
+5)
+Kubernetes requires a Pod Network for the pods to communicate.
+ For this guide we will use Flannel although there are several other Pod Networks availabl
+
+#We can now initialize Kubernetes by running the initialization command 
+and passing --pod-network-cidr which is required for Flannel to work correctly
+$ sudo kubeadm init --pod-network-cidr=172.31.80.0/20
+
+
+$ mkdir -p $HOME/.kube
+$ sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+$ sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+#check status of node
+$ kubectl get nodes
+
+6)
+Once Kubernetes has been initialized we then install the Flannel Pod Network by running.
+Let’s deploy the pod network, Pod network is the network through which our cluster nodes will communicate with each other. 
+We will deploy Flannel as our pod network, Flannel will provide the overlay network between cluster nodes.
+
+First we need to set /proc/sys/net/bridge/bridge-nf-call-iptables to 1 to pass bridged IPv4 traffic to iptables` 
+chains which is required by certain CNI networks (in this case Flannel).
+Do this by issueing
+
+$ sudo sysctl net.bridge.bridge-nf-call-iptables=1
+
+$ sudo kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+
+#We can check that the pod is up by running
+$ kubectl get pods --all-namespaces
+
+7)
+$ sudo  kubectl get nodes
+
+8)
+Because we are running only a single Kubernetes node we want to be able to run Pods on the master node. To do this we need to untaint the master node so it can run regular pods. To do so run
+$ kubectl taint nodes --all node-role.kubernetes.io/master-
+
+##########################################
+This is after Installation of Kubernetes:#
+##########################################
+Your Kubernetes control-plane has initialized successfully!
+
+To start using your cluster, you need to run the following as a regular user:
+
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+You should now deploy a pod network to the cluster.
+Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
+  https://kubernetes.io/docs/concepts/cluster-administration/addons/
+
+Then you can join any number of worker nodes by running the following on each as root:
+
+kubeadm join 172.31.4.87:6443 --token 6ffl0g.jxw1lez0rq8noqp4 --discovery-token-ca-cert-hash sha256:12bc6e09636c6a8c97105970c73a042493998cfa0b30da7836bc9747ecbc3f4d
+
+#############################
+Use above "kubeadm join" command to join the worker nodes.
+
+#############################
+
+deploying an app
+############################
+
+#nginx-pod.yaml
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+  labels: 
+    app: nginx
+	tier: dev
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx
+
+Save it. run below commands:
+
+#To create a new Pod
+kubectl create -f nginx-pod.yaml
+#To see running pods
+kubectl get pod
+#to know the ip address of the pod
+kubectl get pod -o wide
+#To see yaml type output
+kubectl get pod nginx-pod -o yaml
+#Display all the  details and events of a pod
+kubectl describe pod nginx-pod
+
+#Pinging container IP from master
+ping 10.240.1.1
+
+#Getting a shell to running container
+kubectl exec -it nginx-pod -- /bin/bash
+
+#deleting the pod
+kubectl delete pod nginx-pod
+
+
+
+Replication Controllers:
+-----------------------
+#nginx-rc.yaml
+
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: nginx-rc
+spec:
+  replicas: 3
+  selector: 
+    app: nginx-app
+  template:
+    metadata:
+      name: nginx-pod
+      labels: 
+        app: nginx-app
+    spec:
+      containers:
+      - name: nginx-container
+        image: nginx
+        ports:
+        - containerPort: 80
+
+
+#creating the pods using Replication Controller
+kubectl create -f nginx-rc.yaml
+kubectl get pods
+
+#describe the Replication Controller
+kubectl describe rc nginx-rc
+
+#wide output of rc
+kubectl get pods -o wide
+
+#to Scale up the replicas
+kubectl scale rc nginx-rc --replicas=5
+
+#to see the replicas
+kubectl get rc nginx-rc
+kubectl get pods -o wide
+
+#Scaling down the replicas
+kubectl scale rc nginx-rc --replicas=2
+
+#to see the replicas
+kubectl get rc nginx-rc
+kubectl get pods -o wide
+
+#Delete rc
+kubectl delete -f nginx-rc.yaml
+
+
+
+ReplicaSet
+#######################
+
+#nginx-rs.yaml
+
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: nginx-rs
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx-app
+    matchExpressions:
+      - {key:tier, operator: In, values: [frontend]}
+  template:
+    metadata:
+      name: nginx-pod
+      labels: 
+        app: nginx-app
+        tier: frontend
+    spec:
+      containers:
+      - name: nginx-container
+        image: nginx
+        ports:
+        - containerPort: 80
+
+
+#creating the pods using Replication Controller
+kubectl create -f nginx-rs.yaml
+kubectl get pods
+
+#describe the Replication Controller
+kubectl describe rs nginx-rs
+
+#wide output of rc
+kubectl get pods -o wide
+
+#to Scale up the replicas
+kubectl scale rs nginx-rs --replicas=5
+
+#to see the replicas
+kubectl get rs nginx-rs
+kubectl get pods -o wide
+
+#Scaling down the replicas
+kubectl scale rs nginx-rs --replicas=2
+
+#to see the replicas
+kubectl get rs nginx-rs
+kubectl get pods -o wide
+
+#Delete rc
+kubectl delete -f nginx-rs.yaml
+
+
+Deployments
+#############################
+
+#nginx-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deploy
+  labels:
+    app: nginx-app
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: nginx-app
+  template:
+    metadata:
+      labels: 
+        app: nginx-app
+    spec:
+      containers:
+      - name: nginx-container
+        image: nginx:1.7.9
+        ports:
+        - containerPort: 80
+
+#Create deployment
+kubectl create -f nginx-deploy.yaml
+
+#To see deployment replicas
+kubectl get deploy -l app=nginx-app
+
+#To see replicaSet 
+kubectl get rs -l app=nginx-app
+
+#To see pods
+kubectl get pods -l app=nginx-app
+
+#TO descibe the deployment
+kubectl describe deployment nginx-deployment
+
+Update the Deployment
+------------------------
+#To update
+kubectl set image deploy nginx-deployment nginx-container=nginx:1.9.1
+
+#To edit the deployment
+kubectl edit deploy nginx-deployment
+
+#TO rollout the deployment
+kubectl rollout status deployment/nginx-deployment
+
+#To check the deployments
+kubectl get deploy
+
+Rollback deployment
+--------------------
+#if we did mistake while upgrade like below
+kubectl set image deploy nginx-deployment nginx-container=nginx:1.91 --record
+
+Note: You may specify the –record flag to write the command executed in the resource annotation kubernetes.io/change-cause. 
+It is useful for future introspection. For example, to see the commands executed in each Deployment revision.
+
+#Rollout the deployment
+kubectl rollout status deployment/nginx-deployment
+
+#To check rollout history if rollout is not working
+kubectl rollout history deployment/nginx-deployment
+
+#Undo rollout deployment
+kubectl rollout undo deployment/nginx-deployment
+
+#Checking deployment status
+
+kubectl rollout status deployment/nginx-deployment
+
+Scaling up Deployments
+---------------------------
+#To scale up deployments
+
+kubectl scale deployment nginx-deployment --replicas=5
+
+#To check deployments
+kubectl get deploy
+
+#To check pods
+kubectl get pods
+
+Scaling down Deployments
+---------------------------
+#To scale up deployments
+
+kubectl scale deployment nginx-deployment --replicas=2
+
+#To check deployments
+kubectl get deploy
+
+#To check pods
+kubectl get pods -l app=nginx-app
+
+
+#to delete deployment
+kubectl delete -f nginx-deploy.yaml
+
+
+#To check pods - should be No resources found
+kubectl get pods -l app=nginx-app
+
+##########################
+Services:  Type:NodePort #
+##########################
+# We need to deploy any application first then need to create service for that deployment
+
+#nginx-deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deploy
+  labels:
+    app: nginx-app
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: nginx-app
+  template:
+    metadata:
+      labels: 
+        app: nginx-app
+    spec:
+      containers:
+      - name: nginx-container
+        image: nginx:1.7.9
+        ports:
+        - containerPort: 80
+
+
+
+# nginx-svc-np.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-nginx-svc
+  labels:
+    app: nginx-app
+spec:
+  selector:
+    app: nginx-app
+  type: NodePort
+  ports: 
+  - nodePort: 31000
+    port: 80
+    targetPort: 80
+
+
+#Create deployment
+kubectl create -f nginx-deploy.yaml
+
+
+#Create service 
+kubectl create -f nginx-svc-np.yaml
+
+
+#Check service status
+kubectl get service -l app=nginx-app
+
+#Check pods
+kubectl get pod -o wide
+
+#Describe service
+kubectl describe svc my-nginx-service
+
+Access PodIP
+------------
+#Check pods
+kubectl get pod -o wide
+
+#accessing application using pod ip
+curl http://10.240.1.10:80
+
+
+Access service IP
+------------
+#Check pods
+kubectl get svc -l app=nginx-app
+
+
+#accessing application using svc ip
+curl http://10.99.1.10:80
+
+
+
+Access service IP
+------------
+#Check pods
+kubectl get pod -o wide
+
+
+#accessing application using node ip
+curl http://172.88.99.12:80
+
+
+
+########################
+Deploying PHP Guestbook application with Redis
+########################
+
+------------------------------------
+Creating the Redis Master Deployment
+------------------------------------
+#redis-master-deployment.yaml
+
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: redis-master
+  labels:
+    app: redis
+spec:
+  selector:
+    matchLabels:
+      app: redis
+      role: master
+      tier: backend
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: redis
+        role: master
+        tier: backend
+    spec:
+      containers:
+      - name: master
+        image: k8s.gcr.io/redis:e2e  # or just image: redis
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        ports:
+        - containerPort: 6379
+
+
+#Create redis master deployment
+kubectl create -f redis-master-deployment.yaml
+
+#Query the list of Pods to verify that the Redis Master Pod is running:
+
+  kubectl get pods
+
+#Run the following command to view the logs from the Redis Master Pod:
+
+ kubectl logs -f POD-NAME
+
+---------------------------------
+Creating the Redis Master Service
+---------------------------------
+#redis-master-service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-master
+  labels:
+    app: redis
+    role: master
+    tier: backend
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+  selector:
+    app: redis
+    role: master
+    tier: backend
+
+
+#Create the Redis Master Service from the following
+kubectl create -f redis-master-service.yaml
+
+#Query the list of Services to verify that the Redis Master Service is running:
+
+  kubectl get service
+
+-----------------------------------
+Creating the Redis Slave Deployment
+-----------------------------------
+
+#redis-slave-deployment.yaml
+
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: redis-slave
+  labels:
+    app: redis
+spec:
+  selector:
+    matchLabels:
+      app: redis
+      role: slave
+      tier: backend
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: redis
+        role: slave
+        tier: backend
+    spec:
+      containers:
+      - name: slave
+        image: gcr.io/google_samples/gb-redisslave:v3
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        ports:
+        - containerPort: 6379
+
+#Create the Redis Slave Deployment from following
+kubectl create -f redis-slave-deployment.yaml
+
+#Query the list of Pods to verify that the Redis Slave Pods are running:
+kubectl get pods
+
+--------------------------------
+Creating the Redis Slave Service
+--------------------------------
+
+#redis-slave-service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-slave
+  labels:
+    app: redis
+    role: slave
+    tier: backend
+spec:
+  ports:
+  - port: 6379
+  selector:
+    app: redis
+    role: slave
+    tier: backend
+
+#Create the Redis Slave Service from the following 
+kubectl create -f redis-slave-service.yaml
+
+#Query the list of Services to verify that the Redis slave service is running:
+kubectl get services
+
+
+------------------------------------------
+Creating the Guestbook Frontend Deployment
+------------------------------------------
+
+# frontend-deployment.yaml
+
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    app: guestbook
+spec:
+  selector:
+    matchLabels:
+      app: guestbook
+      tier: frontend
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: guestbook
+        tier: frontend
+    spec:
+      containers:
+      - name: php-redis
+        image: gcr.io/google-samples/gb-frontend:v4
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        ports:
+        - containerPort: 80
+
+
+#Create the frontend Deployment from the following
+
+kubectl create -f frontend-deployment.yaml
+
+
+#Query the list of Pods to verify that the Redis Slave Pods are running:
+ kubectl get pods -l app=guestbook -l tier=frontend
+
+------------------------------
+Creating the Frontend Service
+-----------------------------
+
+# frontend-service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels:
+    app: guestbook
+    tier: frontend
+spec:
+  # comment or delete the following line if you want to use a LoadBalancer
+  type: NodePort 
+  # if your cluster supports it, uncomment the following to automatically create
+  # an external load-balanced IP for the frontend service.
+  # type: LoadBalancer
+  ports:
+  - port: 80
+  selector:
+    app: guestbook
+    tier: frontend
+
+
+#Create the frontend service from the following
+kubectl create -f frontend-service.yaml
+
+#Query the list of Services to verify that the Redis slave service is running:
+kubectl get services
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+https://rancher.com/learning-paths/how-to-deploy-your-application-to-kubernetes/
+
+
